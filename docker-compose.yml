@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka:29092'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: telemetry_user
+      POSTGRES_PASSWORD: telemetry_password
+      POSTGRES_DB: telemetry_db
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    environment:
+      - JAVA_OPTS=-Xmx512m
+      - MEM_MAX_SPANS=100000
+
+  paging-api-mock:
+    build: ./paging-api-simulator
+    container_name: paging-api-mock
+    ports:
+      - "8082:8082"
+
+  device-simulator:
+    build: ./device-simulator
+    container_name: device-simulator
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+      - schema-registry
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: 'kafka:29092'
+      SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      SIMULATOR_DEVICES: 10
+      SIMULATOR_INTERVAL: 1000
+
+  patient-telemetry:
+    build: ./patient-telemetry
+    container_name: patient-telemetry
+    depends_on:
+      - kafka
+      - schema-registry
+      - postgres
+      - redis
+      - paging-api-mock
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: 'kafka:29092'
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      SPRING_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/telemetry_db'
+      SPRING_DATA_REDIS_HOST: 'redis'
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: 'http://zipkin:9411/api/v2/spans'
+      PAGING_API_URL: 'http://paging-api-mock:8082'

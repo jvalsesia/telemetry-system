@@ -1,0 +1,62 @@
+server:
+  port: 8080
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+      
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      observation-enabled: true
+    consumer:
+      group-id: telemetry-pipeline-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer
+      properties:
+        schema.registry.url: http://localhost:8081
+        specific.protobuf.value.type: com.antigravity.telemetry.schema.PatientTelemetryEvent
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/telemetry_db
+    username: telemetry_user
+    password: telemetry_password
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+    instances:
+      pagingApi:
+        base-config: default
+
+management:
+  tracing:
+    baggage:
+      correlation:
+        enabled: true
+        fields:
+          - deviceId
+      remote-fields:
+        - deviceId
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans

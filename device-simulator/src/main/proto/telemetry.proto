@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package com.antigravity.telemetry.schema;
+
+option java_multiple_files = true;
+option java_package = "com.antigravity.telemetry.schema";
+option java_outer_classname = "TelemetryProto";
+
+message PatientTelemetryEvent {
+  // Unique identifier for the event (used for idempotency)
+  string event_id = 1;
+  
+  // Device identifier (used as Kafka partition key and for lookup)
+  string device_id = 2;
+  
+  // Timestamp of the telemetry reading (Unix epoch milliseconds)
+  int64 timestamp = 3;
+  
+  // Biometric readings
+  double heart_rate = 4;
+  double sp_o2 = 5;
+  
+  // Indicates if the device itself marked this reading as an error
+  bool device_error = 6;
+}

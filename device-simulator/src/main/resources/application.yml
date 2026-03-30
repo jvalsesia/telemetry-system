@@ -1,0 +1,35 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: device-simulator
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer
+      properties:
+        schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+    template:
+      observation-enabled: true
+
+management:
+  tracing:
+    baggage:
+      correlation:
+        enabled: true
+        fields:
+          - deviceId
+      remote-fields:
+        - deviceId
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+simulator:
+  num-devices: ${SIMULATOR_DEVICES:10}
+  tick-interval-ms: ${SIMULATOR_INTERVAL:1000}
