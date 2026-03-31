@@ -13,6 +13,8 @@ sequenceDiagram
     participant R as Redis (Idempotency)
     participant API as Paging API (Mock)
     participant DB as PostgreSQL (Fallback)
+    participant BFF as Telemetry BFF
+    participant Mob as Telemetry Mobile App
 
     %% Scenario 1: Telemetry Generation & Ingestion
     Note over DS, K: 1. Biometric Ingestion Phase
@@ -33,11 +35,14 @@ sequenceDiagram
         PT->>PT: Stateful Anomaly Detection 
     end
     
-    %% Scenario 3: Paging & Resilience
-    Note over PT, DB: 3. Alert Routing & Resilience Phase
+    %% Scenario 3: Paging, Broadcasting & Resilience
+    Note over PT, DB: 3. Alert Routing, Broadcast & Resilience Phase
     opt Anomaly Threshold Breached
         PT->>API: HTTP POST /v1/alerts
+        PT->>BFF: HTTP POST /v1/alerts
+        BFF-->>Mob: SSE Event Stream (Alert)
         
+
         alt API returns 200 OK
             API-->>PT: Successfully Paged
         else API Unreachable / Timeout

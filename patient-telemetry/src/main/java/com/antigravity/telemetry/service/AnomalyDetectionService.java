@@ -15,12 +15,14 @@ public class AnomalyDetectionService {
     
     private final StringRedisTemplate redisTemplate;
     private final PagingApiClient pagingApiClient;
+    private final com.antigravity.telemetry.client.TelemetryBffClient telemetryBffClient;
     
     private static final int REQUIRED_CONSECUTIVE_ANOMALIES = 3;
 
-    public AnomalyDetectionService(StringRedisTemplate redisTemplate, PagingApiClient pagingApiClient) {
+    public AnomalyDetectionService(StringRedisTemplate redisTemplate, PagingApiClient pagingApiClient, com.antigravity.telemetry.client.TelemetryBffClient telemetryBffClient) {
         this.redisTemplate = redisTemplate;
         this.pagingApiClient = pagingApiClient;
+        this.telemetryBffClient = telemetryBffClient;
     }
 
     public void evaluate(PatientTelemetryEvent event) {
@@ -40,6 +42,7 @@ public class AnomalyDetectionService {
                 log.warn("Anomaly threshold breached! Device {} has had {} consequent critical readings.", deviceId, count);
                 String reason = "Continuous Critical Vitals: HR=" + hr + ", SpO2=" + spo2;
                 pagingApiClient.sendAlert(event.getEventId(), deviceId, hr, spo2, reason);
+                telemetryBffClient.sendAlert(deviceId, hr, spo2, reason);
                 // Flush counter to prevent infinite overlapping alerts
                 redisTemplate.delete(redisKey);
             }
