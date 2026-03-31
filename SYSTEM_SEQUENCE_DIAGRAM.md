@@ -39,7 +39,8 @@ sequenceDiagram
     Note over PT, DB: 3. Alert Routing, Broadcast & Resilience Phase
     opt Anomaly Threshold Breached
         PT->>API: HTTP POST /v1/alerts
-        PT->>BFF: HTTP POST /v1/alerts
+        PT-)K: Publish AlertEvent (telemetry.alerts.v1)
+        K-->>BFF: Consume AlertEvent
         BFF-->>Mob: SSE Event Stream (Alert)
         
 

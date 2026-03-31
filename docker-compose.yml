@@ -83,7 +83,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: 'kafka:29092'
       SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
-      SIMULATOR_DEVICES: 1
+      SIMULATOR_DEVICES: 10
       SIMULATOR_INTERVAL: 1000
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: 'http://zipkin:9411/api/v2/spans'
 
@@ -96,18 +96,17 @@ services:
       - postgres
       - redis
       - paging-api-mock
-      - telemetry-bff
       - zipkin
     ports:
       - "8080:8080"
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: 'kafka:29092'
       SPRING_KAFKA_CONSUMER_PROPERTIES_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      SPRING_KAFKA_PRODUCER_PROPERTIES_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
       SPRING_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/telemetry_db'
       SPRING_DATA_REDIS_HOST: 'redis'
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: 'http://zipkin:9411/api/v2/spans'
       PAGING_API_URL: 'http://paging-api-mock:8082'
-      TELEMETRY_BFF_URL: 'http://telemetry-bff:8084'
 
   telemetry-bff:
     build: ./telemetry-bff
@@ -115,6 +114,10 @@ services:
     ports:
       - "8084:8084"
     depends_on:
+      - kafka
+      - schema-registry
       - zipkin
     environment:
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: 'http://zipkin:9411/api/v2/spans'
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: 'kafka:29092'
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'

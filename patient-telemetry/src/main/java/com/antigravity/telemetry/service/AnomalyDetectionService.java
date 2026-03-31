@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.kafka.core.KafkaTemplate;
+import com.antigravity.telemetry.schema.AlertEvent;
 import java.time.Duration;
 
 @Service
@@ -15,14 +17,14 @@ public class AnomalyDetectionService {
     
     private final StringRedisTemplate redisTemplate;
     private final PagingApiClient pagingApiClient;
-    private final com.antigravity.telemetry.client.TelemetryBffClient telemetryBffClient;
+    private final KafkaTemplate<String, AlertEvent> kafkaTemplate;
     
     private static final int REQUIRED_CONSECUTIVE_ANOMALIES = 3;
 
-    public AnomalyDetectionService(StringRedisTemplate redisTemplate, PagingApiClient pagingApiClient, com.antigravity.telemetry.client.TelemetryBffClient telemetryBffClient) {
+    public AnomalyDetectionService(StringRedisTemplate redisTemplate, PagingApiClient pagingApiClient, KafkaTemplate<String, AlertEvent> kafkaTemplate) {
         this.redisTemplate = redisTemplate;
         this.pagingApiClient = pagingApiClient;
-        this.telemetryBffClient = telemetryBffClient;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     public void evaluate(PatientTelemetryEvent event) {
@@ -42,7 +44,16 @@ public class AnomalyDetectionService {
                 log.warn("Anomaly threshold breached! Device {} has had {} consequent critical readings.", deviceId, count);
                 String reason = "Continuous Critical Vitals: HR=" + hr + ", SpO2=" + spo2;
                 pagingApiClient.sendAlert(event.getEventId(), deviceId, hr, spo2, reason);
-                telemetryBffClient.sendAlert(deviceId, hr, spo2, reason);
+                
+                AlertEvent alertEvent = AlertEvent.newBuilder()
+                        .setDeviceId(deviceId)
+                        .setHeartRate(hr)
+                        .setSpO2(spo2)
+                        .setReason(reason)
+                        .setTimestamp(System.currentTimeMillis())
+                        .build();
+                kafkaTemplate.send("telemetry.alerts.v1", deviceId, alertEvent);
+                
                 // Flush counter to prevent infinite overlapping alerts
                 redisTemplate.delete(redisKey);
             }

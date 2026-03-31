@@ -1,9 +1,10 @@
 # End-to-End (E2E) Verification Plan
 
-This End-to-End Test Plan outlines the testing strategy for the complete telemetry pipeline across its three core microservice solutions:
+This End-to-End Test Plan outlines the testing strategy for the complete telemetry pipeline across its core microservice solutions:
 1. **Device Simulator** (`device-simulator`): Generates biometric payloads at scale and pushes them to Kafka.
-2. **Patient Telemetry** (`patient-telemetry`): Consumes payloads, processes stateful anomaly detection, validates idempotency in Redis, and pages alerts.
+2. **Patient Telemetry** (`patient-telemetry`): Consumes payloads, processes stateful anomaly detection, validates idempotency in Redis, and pages/publishes alerts.
 3. **Paging API Simulator** (`paging-api-simulator`): A mock external service that receives HTTP alert webhooks.
+4. **Telemetry BFF** (`telemetry-bff`): Consumes `AlertEvent` messages from Kafka and streams them to frontend clients via Server-Sent Events (SSE).
 
 ---
 
@@ -22,7 +23,7 @@ docker compose up -d --build
 
 ---
 
-## 🧪 2. Test Scenarios (The 3 Core Solutions)
+## 🧪 2. Test Scenarios (The 4 Core Solutions)
 
 ### Scenario A: Initialization & Ingestion (Device Simulator)
 **Objective:** Confirm the `device-simulator` solution is correctly injecting the generated data into the ecosystem.
@@ -57,6 +58,16 @@ docker compose up -d --build
    docker logs -f paging-api-mock
    ```
    - *Expected Behavior:* You should see incoming `POST` requests bearing the alert payload (containing the critical `deviceId`, `heartRate`, `spO2`, etc.) mirroring the telemetry logs in Scenario B.
+
+### Scenario D: Frontend Broadcast Delivery (Telemetry BFF)
+**Objective:** Confirm the `telemetry-bff` successfully consumes `AlertEvent` messages from Kafka and broadcasts them out to subscribed clients.
+
+1. **Trigger:** With anomalies actively generating via the Device Simulator (Scenario A & B), the `telemetry.alerts.v1` Kafka topic will be populated. Connect to the SSE endpoint:
+   ```bash
+   curl -N http://localhost:8084/stream/alerts
+   ```
+2. **Assertion:** 
+   - *Expected Behavior:* The connection should stay open (SSE) and you should receive `data:` payloads corresponding to the generated alerts in real-time, matching what is logged in `patient-telemetry`.
 
 ---
 

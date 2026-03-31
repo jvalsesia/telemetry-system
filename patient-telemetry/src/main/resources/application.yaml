@@ -18,6 +18,11 @@ spring:
       properties:
         schema.registry.url: http://localhost:8081
         specific.protobuf.value.type: com.antigravity.telemetry.schema.PatientTelemetryEvent
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer
+      properties:
+        schema.registry.url: http://localhost:8081
 
   datasource:
     url: jdbc:postgresql://localhost:5432/telemetry_db

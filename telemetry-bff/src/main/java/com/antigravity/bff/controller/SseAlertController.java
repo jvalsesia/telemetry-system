@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.kafka.annotation.KafkaListener;
+import com.antigravity.telemetry.schema.AlertEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -20,9 +22,17 @@ public class SseAlertController {
     // Multicast sink allows multiple subscribers (frontend apps) to receive the same events
     private final Sinks.Many<Alert> alertSink = Sinks.many().multicast().directBestEffort();
 
-    @PostMapping("/v1/alerts")
-    public void receiveAlert(@RequestBody Alert alert) {
-        log.info("BFF Received Alert for device {}: {}", alert.getDeviceId(), alert.getReason());
+    @KafkaListener(topics = "telemetry.alerts.v1", groupId = "telemetry-bff-group")
+    public void receiveAlert(AlertEvent alertEvent) {
+        log.info("BFF Received Alert for device {}: {}", alertEvent.getDeviceId(), alertEvent.getReason());
+        // Map from Protobuf Event to Domain Object
+        Alert alert = new Alert(
+                alertEvent.getDeviceId(),
+                alertEvent.getReason(),
+                alertEvent.getHeartRate(),
+                alertEvent.getSpO2()
+        );
+
         // Emit the alert to all connected SSE clients
         Sinks.EmitResult result = alertSink.tryEmitNext(alert);
         if (result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {

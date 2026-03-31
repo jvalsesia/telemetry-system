@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: telemetry-bff
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: telemetry-bff-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.protobuf.KafkaProtobufDeserializer
+      properties:
+        schema.registry.url: ${SPRING_KAFKA_CONSUMER_PROPERTIES_SCHEMA_REGISTRY_URL:http://localhost:8081}
+        specific.protobuf.value.type: com.antigravity.telemetry.schema.AlertEvent
 
 logging:
   level:
